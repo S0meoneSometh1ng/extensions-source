@@ -1,12 +1,6 @@
 name: Build Koharu Extension
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'src/all/koharu/**'
-      - '.github/workflows/build_koharu.yml'
   workflow_dispatch:
 
 permissions:
