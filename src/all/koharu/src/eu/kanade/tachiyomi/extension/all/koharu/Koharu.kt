@@ -115,64 +115,6 @@ class Koharu(
         .rateLimit(3)
         .build()
 
-    private val clearanceClient = network.cloudflareClient.newBuilder()
-        .addInterceptor { chain ->
-            val request = chain.request()
-            val url = request.url
-            val clearance = getClearance()
-                ?: throw IOException("Open webview to refresh token")
-
-            val newUrl = url.newBuilder()
-                .setQueryParameter("crt", clearance)
-                .build()
-            val newRequest = request.newBuilder()
-                .url(newUrl)
-                .build()
-
-            val response = chain.proceed(newRequest)
-
-            if (response.code !in listOf(400, 403)) {
-                return@addInterceptor response
-            }
-            response.close()
-            _clearance = null
-            throw IOException("Open webview to refresh token")
-        }
-        .rateLimit(3)
-        .build()
-
-    private val context: Application by injectLazy()
-    private val handler by lazy { Handler(Looper.getMainLooper()) }
-    private var _clearance: String? = null
-
-    @SuppressLint("SetJavaScriptEnabled")
-    fun getClearance(): String? {
-        _clearance?.also { return it }
-        val latch = CountDownLatch(1)
-        handler.post {
-            val webview = WebView(context)
-            with(webview.settings) {
-                javaScriptEnabled = true
-                domStorageEnabled = true
-                databaseEnabled = true
-                blockNetworkImage = true
-            }
-            webview.webViewClient = object : WebViewClient() {
-                override fun onPageFinished(view: WebView?, url: String?) {
-                    view!!.evaluateJavascript("window.localStorage.getItem('clearance')") { clearance ->
-                        webview.stopLoading()
-                        webview.destroy()
-                        _clearance = clearance.takeUnless { it == "null" }?.removeSurrounding("\"")
-                        latch.countDown()
-                    }
-                }
-            }
-            webview.loadUrl("$domainUrl/")
-        }
-        latch.await(10, TimeUnit.SECONDS)
-        return _clearance
-    }
-
     private fun getManga(book: Entry) = SManga.create().apply {
         setUrlWithoutDomain("${book.id}/${book.key}")
         title = if (remadd()) book.title.shortenTitle() else book.title
@@ -213,7 +155,7 @@ class Koharu(
             else -> "0"
         }
 
-        val imagesResponse = clearanceClient.newCall(GET("$apiBooksUrl/data/$entryId/$entryKey/$id/$public_key/$realQuality", lazyHeaders)).execute()
+        val imagesResponse = client.newCall(GET("$apiBooksUrl/data/$entryId/$entryKey/$id/$public_key/$realQuality", lazyHeaders)).execute()
         val images = imagesResponse.parseAs<ImagesInfo>() to realQuality
         return images
     }
@@ -425,7 +367,7 @@ class Koharu(
     // Page List
 
     override fun fetchPageList(chapter: SChapter): Observable<List<Page>> {
-        return clearanceClient.newCall(pageListRequest(chapter))
+        return client.newCall(pageListRequest(chapter))
             .asObservableSuccess()
             .map { response ->
                 pageListParse(response)
