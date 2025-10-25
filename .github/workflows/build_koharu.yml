@@ -34,14 +34,7 @@ jobs:
 
       - name: Build Koharu extension
         run: |
-          ./gradlew :src:all:koharu:assembleDebug :src:all:koharu:assembleRelease
-
-      - name: Sign APKs
-        run: |
-          find src/all/koharu/build/outputs/apk -name "*.apk" -exec \
-            jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
-            -keystore ~/.android/debug.keystore -storepass android \
-            -keypass android {} androiddebugkey \;
+          ./gradlew :src:all:koharu:assembleDebug
 
       - name: Rename APKs
         run: |
