@@ -27,16 +27,14 @@ jobs:
       - name: Generate debug keystore
         run: |
           mkdir -p ~/.android
-          if [ ! -f ~/.android/debug.keystore ]; then
-            keytool -genkey -v -keystore ~/.android/debug.keystore \
-              -storepass android -alias androiddebugkey -keypass android \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
+          keytool -genkey -v -keystore ~/.android/debug.keystore \
+            -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Build Koharu extension
         run: |
-          ./gradlew :all:koharu:assembleDebug :all:koharu:assembleRelease
+          ./gradlew :src:all:koharu:assembleDebug :src:all:koharu:assembleRelease
 
       - name: Sign APKs
         run: |
@@ -53,30 +51,21 @@ jobs:
             for apk in "$dir"/*.apk; do
               if [ -f "$apk" ]; then
                 filename=$(basename "$apk")
-                # Extract version from filename (e.g., koharu-v1.2.3.apk)
                 newname="koharu-${variant}-${filename}"
                 mv "$apk" "$dir/$newname"
-                echo "Renamed: $apk -> $newname"
+                echo "Renamed: $newname"
               fi
             done
           done
 
-      - name: Upload Debug APK
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: koharu-debug
-          path: src/all/koharu/build/outputs/apk/debug/*.apk
-          retention-days: 30
-
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: koharu-release
-          path: src/all/koharu/build/outputs/apk/release/*.apk
+          name: koharu-apks
+          path: src/all/koharu/build/outputs/apk/**/*.apk
           retention-days: 30
 
       - name: Create Release
-        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: koharu-${{ github.run_number }}
@@ -90,9 +79,7 @@ jobs:
             
             **Install:**
             Download the APK and install on your device with Tachiyomi.
-          files: |
-            src/all/koharu/build/outputs/apk/debug/*.apk
-            src/all/koharu/build/outputs/apk/release/*.apk
+          files: src/all/koharu/build/outputs/apk/**/*.apk
           draft: false
           prerelease: false
         env:
