@@ -59,11 +59,11 @@ class Koharu(
 
     override val name = "SchaleNetwork"
 
-    override val baseUrl = "https://schale.network"
+    override val baseUrl = "https://niyaniya.moe"
 
     override val id = if (lang == "en") 1484902275639232927 else super.id
 
-    private val apiUrl = baseUrl.replace("://", "://api.")
+    private val apiUrl = "https://api.schale.network"
 
     private val apiBooksUrl = "$apiUrl/books"
 
@@ -401,7 +401,7 @@ class Koharu(
         }
     }
 
-    override fun getMangaUrl(manga: SManga) = "$baseUrl/g/${manga.url}"
+    override fun getMangaUrl(manga: SManga) = "https://niyaniya.moe/g/${manga.url}"
 
     // Chapter
 
@@ -420,7 +420,7 @@ class Koharu(
         )
     }
 
-    override fun getChapterUrl(chapter: SChapter) = "$baseUrl/g/${chapter.url}"
+    override fun getChapterUrl(chapter: SChapter) = "https://niyaniya.moe/g/${chapter.url}"
 
     // Page List
 
