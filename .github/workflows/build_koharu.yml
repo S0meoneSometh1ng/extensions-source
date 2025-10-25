@@ -1,0 +1,105 @@
+name: Build Koharu Extension
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/all/koharu/**'
+      - '.github/workflows/build_koharu.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Koharu APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate debug keystore
+        run: |
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/debug.keystore ]; then
+            keytool -genkey -v -keystore ~/.android/debug.keystore \
+              -storepass android -alias androiddebugkey -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Build Koharu extension
+        run: |
+          ./gradlew :all:koharu:assembleDebug :all:koharu:assembleRelease
+
+      - name: Sign APKs
+        run: |
+          find src/all/koharu/build/outputs/apk -name "*.apk" -exec \
+            jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
+            -keystore ~/.android/debug.keystore -storepass android \
+            -keypass android {} androiddebugkey \;
+
+      - name: Rename APKs
+        run: |
+          cd src/all/koharu/build/outputs/apk
+          for dir in */; do
+            variant=$(basename "$dir")
+            for apk in "$dir"/*.apk; do
+              if [ -f "$apk" ]; then
+                filename=$(basename "$apk")
+                # Extract version from filename (e.g., koharu-v1.2.3.apk)
+                newname="koharu-${variant}-${filename}"
+                mv "$apk" "$dir/$newname"
+                echo "Renamed: $apk -> $newname"
+              fi
+            done
+          done
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: koharu-debug
+          path: src/all/koharu/build/outputs/apk/debug/*.apk
+          retention-days: 30
+
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: koharu-release
+          path: src/all/koharu/build/outputs/apk/release/*.apk
+          retention-days: 30
+
+      - name: Create Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: koharu-${{ github.run_number }}
+          name: Koharu Extension Build ${{ github.run_number }}
+          body: |
+            Automated build of Koharu extension
+            
+            **Changes:**
+            - Updated to use niyaniya.moe domain
+            - API endpoint: api.schale.network
+            
+            **Install:**
+            Download the APK and install on your device with Tachiyomi.
+          files: |
+            src/all/koharu/build/outputs/apk/debug/*.apk
+            src/all/koharu/build/outputs/apk/release/*.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
